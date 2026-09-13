@@ -26,7 +26,8 @@
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test:all": "npm run test && npm run test:integration",
     "db:setup:cloud": "powershell -ExecutionPolicy Bypass -File scripts/setup-cloud-dev.ps1",
-    "db:types:cloud": "powershell -ExecutionPolicy Bypass -Command \"npx supabase gen types typescript --linked --schema public | Out-File -FilePath src/types/database.ts -Encoding utf8\""
+    "db:types:cloud": "powershell -ExecutionPolicy Bypass -Command \"npx supabase gen types typescript --linked --schema public | Out-File -FilePath src/types/database.ts -Encoding utf8\"",
+    "db:verify": "powershell -ExecutionPolicy Bypass -File scripts/verify-schema.ps1"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

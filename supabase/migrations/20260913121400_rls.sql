@@ -17,6 +17,71 @@
 -- Access predicates. SECURITY DEFINER so they can read the tables they guard.
 -- -----------------------------------------------------------------------------
 
+-- Firms the current user holds a membership in. Empty array for anon.
+create or replace function app.current_firm_ids()
+returns uuid[]
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select coalesce(array_agg(m.firm_id), '{}'::uuid[])
+  from public.memberships m
+  where m.user_id = (select auth.uid())
+$$;
+
+create or replace function app.is_member(p_firm uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from public.memberships m
+    where m.user_id = (select auth.uid()) and m.firm_id = p_firm
+  )
+$$;
+
+-- A user has at most one membership per firm (enforced by a unique constraint),
+-- so this is single-valued.
+create or replace function app.role_in_firm(p_firm uuid)
+returns public.zq_role
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select m.role from public.memberships m
+  where m.user_id = (select auth.uid()) and m.firm_id = p_firm
+  limit 1
+$$;
+
+create or replace function app.has_role(p_firm uuid, p_roles public.zq_role[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from public.memberships m
+    where m.user_id = (select auth.uid())
+      and m.firm_id = p_firm
+      and m.role = any(p_roles)
+  )
+$$;
+
+revoke all on function app.current_firm_ids() from public;
+revoke all on function app.is_member(uuid) from public;
+revoke all on function app.role_in_firm(uuid) from public;
+revoke all on function app.has_role(uuid, public.zq_role[]) from public;
+
+grant execute on function app.current_firm_ids() to authenticated;
+grant execute on function app.is_member(uuid) to authenticated;
+grant execute on function app.role_in_firm(uuid) to authenticated;
+grant execute on function app.has_role(uuid, public.zq_role[]) to authenticated;
+
 -- Read access to a request: admins and accountants see every request in their
 -- firm; staff see only the ones assigned to them.
 create or replace function app.can_access_request(p_request uuid)

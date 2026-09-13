@@ -230,6 +230,47 @@ point at a throwaway development project.
 
 ---
 
+## D-017 — Absent RLS policies FILTER, they do not raise
+**Phase 1 · Accepted**
+
+`activity_events` is append-only by having no UPDATE or DELETE policy. The first
+version of the verification suite asserted that `update activity_events ...` would
+throw, and it did not — the statement *succeeded*, matching zero rows.
+
+That is correct Postgres behaviour, and it matters: with RLS enabled and no policy
+for a command, the missing `USING` clause evaluates to false, so nothing qualifies
+and the statement reports success having changed nothing. Only `WITH CHECK`
+violations (INSERT, or an UPDATE that would move a row out of scope) raise
+`42501`.
+
+**Consequence for tests.** Never assert "it threw" for a SELECT/UPDATE/DELETE that
+RLS should block — assert the affected row count is zero, and confirm the data is
+unchanged from a privileged connection. `tests/sql/verify-rls.sql` and
+`tests/integration/rls-isolation.test.ts` both do this. The schema was correct; the
+assertion was wrong.
+
+---
+
+## D-018 — A SQL verification harness, independent of the Supabase stack
+**Phase 1 · Accepted**
+
+Because `supabase start` cannot run on the development machine (D-016), schema
+correctness would otherwise be unverifiable locally. `npm run db:verify` applies every
+migration and the seed to a throwaway `supabase/postgres` container and runs 36
+cross-tenant checks against it, simulating PostgREST by assuming the `authenticated`
+or `anon` role and setting the JWT claim GUCs.
+
+`tests/sql/bootstrap-bare-postgres.sql` adds the few things the bare image lacks
+(`auth.jwt()`, the storage tables, and the modern GoTrue columns on `auth.users`).
+The seed is written for real Supabase and was **not** adjusted to the image's older
+`auth.users` shape — the shim was brought forward instead.
+
+**Limits, stated plainly.** This proves DDL validity and RLS *policy behaviour*. It does
+not exercise GoTrue or PostgREST, so real JWT issuance, password sign-in and the REST
+layer remain covered only by `npm run test:integration` against a real Supabase.
+
+---
+
 ## Noticed, deliberately not built
 
 - **Client-facing notification preferences** (opt-out of reminders). Out of V1 scope.

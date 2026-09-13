@@ -110,6 +110,23 @@ npm run db:status       # print local URLs and keys
 npm run db:types        # regenerate src/types/database.ts — run after every migration
 ```
 
+### Verifying the schema without the Supabase stack
+
+```powershell
+npm run db:verify
+```
+
+Applies all 17 migrations and the seed to a throwaway `supabase/postgres` container,
+then runs 36 cross-tenant isolation checks against it — simulating how PostgREST
+executes a request, by assuming the `authenticated` or `anon` role and setting the JWT
+claim variables. It needs only Docker, not the full Supabase stack, and it removes the
+container afterwards.
+
+It covers tenant isolation, staff assigned-only scoping, anonymous denial, portal-token
+scoping, the status transition guard and schema-wide RLS coverage. It does **not** cover
+GoTrue or PostgREST, so real sign-in and the REST layer still need
+`npm run test:integration` against a real Supabase.
+
 ### Developing against a cloud project instead of the local stack
 
 The local Docker stack is the default, but Supabase's Realtime container segfaults

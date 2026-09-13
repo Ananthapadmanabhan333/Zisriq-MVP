@@ -40,6 +40,8 @@ npm test                  # vitest run (unit only, no database needed)
 npm run test:integration  # RLS cross-tenant isolation (REQUIRES local Supabase running)
 npm run test:all          # both
 npm run test:e2e          # playwright
+npm run db:verify         # apply all migrations + seed to a throwaway Postgres and
+                          # run 36 cross-tenant RLS checks. Needs only Docker.
 
 npm run db:start        # supabase start  (needs Docker Desktop running)
 npm run db:stop
@@ -98,10 +100,16 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - **Phase 0 — Foundations. DONE.** Repo, Next.js + TS + Tailwind + shadcn, Supabase local
   dev initialised, Zod-validated env, ESLint/Prettier, Vitest + Playwright wired, CI on
   GitHub Actions, docs. No schema yet.
-- **Phase 1 — Schema and security.** 17 migrations (enums, helpers, tenancy, clients,
-  templates, requests, portal tokens, documents, reminders, activity trail, rate limits,
-  status-transition guard, RLS, storage, views, security audit), seed with two demo firms,
-  and the manifest-driven cross-tenant isolation suite.
+- **Phase 1 — Schema and security. Schema + RLS VERIFIED.** 17 migrations (enums,
+  helpers, tenancy, clients, templates, requests, portal tokens, documents, reminders,
+  activity trail, rate limits, status-transition guard, RLS, storage, views, security
+  audit), seed with two demo firms, and the manifest-driven cross-tenant isolation suite.
+  `npm run db:verify` applies everything to a throwaway Postgres and passes 36 checks:
+  cross-tenant read/write/delete denial, staff assigned-only scoping, anonymous denial,
+  portal token scoping, the status transition guard, and schema-wide RLS coverage.
+  **Still unverified:** the Vitest suite in tests/integration, which needs GoTrue for
+  real JWTs — blocked on a working Supabase (local stack or cloud). Run
+  `npm run test:integration` once one is available before calling Phase 1 closed.
 - Phase 2 — Auth and firm shell. NEXT.
 - Phase 2 — Auth and firm shell.
 - Phase 3 — Clients and requests.
@@ -112,6 +120,20 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 
 ## Gotchas discovered so far
 
+- **Migration order matters for `language sql` functions.** Postgres validates an SQL
+  function body at creation time, so a helper that queries a table must be created
+  *after* that table. The membership helpers therefore live in the RLS migration, not
+  in the helpers migration. `plpgsql` bodies are not validated this way, which is why
+  the triggers were unaffected.
+- **RLS with no policy filters rather than raising** on SELECT/UPDATE/DELETE. Assert row
+  counts, not exceptions. See DECISIONS.md D-017.
+- **Windows PowerShell turns native stderr into a terminating error** under
+  `$ErrorActionPreference = "Stop"`, so a psql `NOTICE` aborts a script. Scripts here
+  use `Continue` and check `$LASTEXITCODE`.
+- **Git Bash mangles container-absolute paths** (`/app/bin/x` becomes
+  `C:/Program Files/Git/app/bin/x`). Use PowerShell or `MSYS_NO_PATHCONV=1` for
+  `docker run --entrypoint`.
+
 - The parent directory `C:\Users\Ananthapadmanabhan` is itself a git repo. This project has
   its own independent repo. Always confirm `git rev-parse --show-toplevel` points at the
   Zisriq folder before committing.
@@ -120,7 +142,8 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - `@types/node` must stay on v24 to satisfy Vitest 5's peer range.
 - **Docker Desktop on this machine fails to start with stale AF_UNIX sockets.** The error is
   `rename <x>.sock <x>.sock.stale: The file cannot be accessed by the system`, in either
-  `%LOCALAPPDATA%\Dockerun` or `%LOCALAPPDATA%\docker-secrets-engine`. Renaming one
+  `%LOCALAPPDATA%\Docker
+un` or `%LOCALAPPDATA%\docker-secrets-engine`. Renaming one
   directory only buys a single start attempt, because orphaned `com.docker.backend`
   processes keep re-breaking the sockets. The fix that works: kill every docker/vpnkit
   process except `com.docker.service`, run `wsl --shutdown`, rename BOTH directories, then
