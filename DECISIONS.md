@@ -123,6 +123,79 @@ multiple firms, though V1's UI assumes one and ships no firm switcher.
 
 ---
 
+## D-010 — Denormalised `firm_id`, kept honest by triggers
+**Phase 1 · Accepted**
+
+Child tables (`request_items`, `documents`, `portal_tokens`, `reminders`,
+`checklist_template_items`) carry their own `firm_id` even though it is derivable through a
+join. This lets every policy in the schema use the same shape and keeps RLS cheap.
+
+A denormalised tenancy column is a hole if it can disagree with its parent, so it is never
+trusted from the caller: a `BEFORE INSERT OR UPDATE` trigger on each table overwrites it with
+the parent's value. Supplying someone else's `firm_id` does not smuggle a row anywhere — it is
+simply replaced, and the `WITH CHECK` clause then evaluates against the true owner.
+
+`requests` gets an additional guard, `assert_request_client_same_firm`, because its two
+tenancy anchors (`firm_id` and `client_id`) could otherwise disagree.
+
+---
+
+## D-011 — `ENABLE` row level security, not `FORCE`
+**Phase 1 · Accepted**
+
+`FORCE ROW LEVEL SECURITY` makes policies apply to the table owner as well. That sounds
+strictly safer, but the `app.*` authorisation helpers are `SECURITY DEFINER` functions owned
+by `postgres` whose entire purpose is to read `memberships` without re-entering the policy
+that is being evaluated. Under `FORCE`, that recursion returns.
+
+PostgREST connects as `authenticator` and switches to `anon`, `authenticated` or
+`service_role` — never to the table owner — so `FORCE` closes no reachable path. Plain
+`ENABLE` plus explicit `to authenticated` / `to anon` on every policy is the safer trade.
+
+---
+
+## D-012 — Views are `security_invoker`
+**Phase 1 · Accepted**
+
+A Postgres view runs with its *owner's* privileges by default, which silently bypasses the RLS
+of every table beneath it. That is one of the most common ways a multi-tenant app leaks.
+`v_requests_enriched` is declared `with (security_invoker = true)` so the caller's policies
+still apply. Any view added later must do the same.
+
+---
+
+## D-013 — At most one live portal token per request
+**Phase 1 · Accepted**
+
+A partial unique index (`where revoked_at is null`) permits only one un-revoked token per
+request. Regenerating a link must therefore revoke the previous one in the same transaction.
+Without this, a firm that "regenerated" a link after sending it to the wrong address would
+still have the old link working — a withdrawal the user believes happened but did not.
+
+---
+
+## D-014 — Reminder idempotency is a database constraint, not application logic
+**Phase 1 · Accepted**
+
+The spec requires the daily cron to be idempotent. Rather than having the handler check
+whether it already sent something — which races with itself on a retry — the ledger carries
+`unique (request_id, type, sequence_no, scheduled_for)`. The handler inserts the row it is
+about to send; a duplicate is rejected by Postgres and the send is skipped. Re-running the
+cron any number of times in a day cannot double-send.
+
+---
+
+## D-015 — `security_audit_tables()` exists so the isolation suite cannot rot
+**Phase 1 · Accepted**
+
+The cross-tenant test asserts that its table manifest equals the set of tables actually
+carrying `firm_id`, and that no table in `public` has RLS disabled. That requires catalog
+metadata, which PostgREST does not expose. A service-role-only `SECURITY DEFINER` function
+provides exactly those two facts and nothing else. The effect: adding a table without adding
+a probe, or without enabling RLS, fails CI instead of passing unnoticed.
+
+---
+
 ## Noticed, deliberately not built
 
 - **Client-facing notification preferences** (opt-out of reminders). Out of V1 scope.

@@ -36,8 +36,10 @@ npm run build           # production build
 npm run typecheck       # tsc --noEmit
 npm run lint            # eslint
 npm run format          # prettier --write .
-npm test                # vitest run (unit + integration)
-npm run test:e2e        # playwright
+npm test                  # vitest run (unit only, no database needed)
+npm run test:integration  # RLS cross-tenant isolation (REQUIRES local Supabase running)
+npm run test:all          # both
+npm run test:e2e          # playwright
 
 npm run db:start        # supabase start  (needs Docker Desktop running)
 npm run db:stop
@@ -96,7 +98,11 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - **Phase 0 — Foundations. DONE.** Repo, Next.js + TS + Tailwind + shadcn, Supabase local
   dev initialised, Zod-validated env, ESLint/Prettier, Vitest + Playwright wired, CI on
   GitHub Actions, docs. No schema yet.
-- Phase 1 — Schema and security. NEXT.
+- **Phase 1 — Schema and security.** 17 migrations (enums, helpers, tenancy, clients,
+  templates, requests, portal tokens, documents, reminders, activity trail, rate limits,
+  status-transition guard, RLS, storage, views, security audit), seed with two demo firms,
+  and the manifest-driven cross-tenant isolation suite.
+- Phase 2 — Auth and firm shell. NEXT.
 - Phase 2 — Auth and firm shell.
 - Phase 3 — Clients and requests.
 - Phase 4 — Client portal and uploads.
@@ -112,5 +118,14 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - npm rejects the folder name `Zisriq` as a package name (capital letter); the package is
   named `zisriq`. Scaffolding had to happen in a subfolder and be moved up.
 - `@types/node` must stay on v24 to satisfy Vitest 5's peer range.
+- **Docker Desktop on this machine fails to start with stale AF_UNIX sockets.** The error is
+  `rename <x>.sock <x>.sock.stale: The file cannot be accessed by the system`, in either
+  `%LOCALAPPDATA%\Dockerun` or `%LOCALAPPDATA%\docker-secrets-engine`. Renaming one
+  directory only buys a single start attempt, because orphaned `com.docker.backend`
+  processes keep re-breaking the sockets. The fix that works: kill every docker/vpnkit
+  process except `com.docker.service`, run `wsl --shutdown`, rename BOTH directories, then
+  relaunch Docker Desktop. Do not use "Reset to factory defaults" — it wipes all images.
+  There were already five `run-orphaned-*` / `run.stale-*` directories from earlier
+  occurrences, so expect this to recur.
 - Vercel serverless functions cap request bodies at ~4.5 MB, so 25 MB uploads **cannot**
   pass through a route handler. See DECISIONS.md D-001.

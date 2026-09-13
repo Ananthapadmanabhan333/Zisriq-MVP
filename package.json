@@ -22,7 +22,9 @@
     "db:status": "supabase status",
     "db:diff": "supabase db diff",
     "db:types": "powershell -ExecutionPolicy Bypass -File scripts/gen-types.ps1",
-    "db:push:prod": "powershell -ExecutionPolicy Bypass -File scripts/db-push-prod.ps1"
+    "db:push:prod": "powershell -ExecutionPolicy Bypass -File scripts/db-push-prod.ps1",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -94,7 +94,9 @@ npm run build           # production build
 npm run typecheck       # TypeScript, no emit
 npm run lint            # ESLint
 npm run format          # Prettier, write
-npm test                # unit + integration tests (Vitest)
+npm test                # unit tests (Vitest) - no database needed
+npm run test:integration  # RLS cross-tenant isolation - needs the local stack running
+npm run test:all        # both
 npm run test:e2e        # end-to-end tests (Playwright)
 ```
 
@@ -107,6 +109,23 @@ npm run db:reset        # drop, re-apply every migration, re-seed
 npm run db:status       # print local URLs and keys
 npm run db:types        # regenerate src/types/database.ts — run after every migration
 ```
+
+### If Docker Desktop will not start
+
+A recurring fault on Windows leaves stale Unix-socket files that Docker cannot remove, and it
+quits with *"An unexpected error occurred"* mentioning `.sock.stale` and *"The file cannot be
+accessed by the system"*. Do **not** click "Reset to factory defaults" — that deletes every
+image and container you have. Run this instead, then start Docker Desktop again:
+
+```powershell
+Get-Process | Where-Object { $_.Name -match 'docker|vpnkit|wslrelay' -and $_.Name -ne 'com.docker.service' } | Stop-Process -Force
+wsl --shutdown
+Move-Item "$env:LOCALAPPDATA\Dockerun" "$env:LOCALAPPDATA\Dockerun.broken" -Force
+Move-Item "$env:LOCALAPPDATA\docker-secrets-engine" "$env:LOCALAPPDATA\docker-secrets-engine.broken" -Force
+```
+
+Killing the orphaned `com.docker.backend` processes is the part that matters: without it,
+Docker recreates the sockets and immediately breaks them again.
 
 ---
 
