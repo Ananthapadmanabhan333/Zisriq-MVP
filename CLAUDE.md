@@ -100,16 +100,16 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - **Phase 0 — Foundations. DONE.** Repo, Next.js + TS + Tailwind + shadcn, Supabase local
   dev initialised, Zod-validated env, ESLint/Prettier, Vitest + Playwright wired, CI on
   GitHub Actions, docs. No schema yet.
-- **Phase 1 — Schema and security. Schema + RLS VERIFIED.** 17 migrations (enums,
+- **Phase 1 — Schema and security. DONE and VERIFIED.** 17 migrations (enums,
   helpers, tenancy, clients, templates, requests, portal tokens, documents, reminders,
   activity trail, rate limits, status-transition guard, RLS, storage, views, security
   audit), seed with two demo firms, and the manifest-driven cross-tenant isolation suite.
   `npm run db:verify` applies everything to a throwaway Postgres and passes 36 checks:
   cross-tenant read/write/delete denial, staff assigned-only scoping, anonymous denial,
   portal token scoping, the status transition guard, and schema-wide RLS coverage.
-  **Still unverified:** the Vitest suite in tests/integration, which needs GoTrue for
-  real JWTs — blocked on a working Supabase (local stack or cloud). Run
-  `npm run test:integration` once one is available before calling Phase 1 closed.
+  `npm run test:integration` passes **68/68** against a real local Supabase, signing in
+  as seeded users through GoTrue and going through PostgREST — the spec's Phase 2 gate.
+  Phase 2 may proceed.
 - Phase 2 — Auth and firm shell. NEXT.
 - Phase 2 — Auth and firm shell.
 - Phase 3 — Clients and requests.
@@ -140,6 +140,13 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - npm rejects the folder name `Zisriq` as a package name (capital letter); the package is
   named `zisriq`. Scaffolding had to happen in a subfolder and be moved up.
 - `@types/node` must stay on v24 to satisfy Vitest 5's peer range.
+- **A container exiting 139 with NO log output means a corrupt binary, not a platform
+  bug.** Filling the C: drive pushed the Docker VM filesystem read-only mid-pull and
+  left image layers truncated (GoTrue's `auth` binary was exactly 8 MiB instead of
+  50 MB). Docker still reported the images as present, so every `docker pull` was a
+  no-op. `docker rmi -f <image>` then `docker pull <image>` is the repair. Check the
+  entrypoint's on-disk size before blaming WSL2 — a suspiciously round size is the tell.
+  See DECISIONS.md D-016.
 - **Docker Desktop on this machine fails to start with stale AF_UNIX sockets.** The error is
   `rename <x>.sock <x>.sock.stale: The file cannot be accessed by the system`, in either
   `%LOCALAPPDATA%\Docker

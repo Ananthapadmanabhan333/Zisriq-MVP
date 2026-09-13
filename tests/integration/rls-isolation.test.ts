@@ -300,6 +300,21 @@ describe.each(PROBES)("firm A cannot reach firm B's $table", (probe) => {
   });
 
   it("cannot UPDATE the row", async () => {
+    const readColumn = async () => {
+      const { data } = await admin
+        .from(probe.table)
+        .select(probe.mutableColumn)
+        .eq("id", probe.idOf())
+        .single();
+      return (data as unknown as Record<string, unknown>)[probe.mutableColumn];
+    };
+
+    // Compare before against after, rather than against the value we tried to
+    // write. Asserting "not equal to the attempted value" gives a false failure
+    // whenever the row already happens to hold it — which is exactly what
+    // memberships.role = 'admin' did.
+    const before = await readColumn();
+
     const { data, error } = await firmAAdmin
       .from(probe.table)
       .update({ [probe.mutableColumn]: probe.mutableValue })
@@ -309,16 +324,7 @@ describe.each(PROBES)("firm A cannot reach firm B's $table", (probe) => {
     // Either RLS rejects outright, or it filters the row out — both are correct.
     if (!error) expect(data).toEqual([]);
 
-    // Ground truth: the row is genuinely untouched.
-    const { data: actual } = await admin
-      .from(probe.table)
-      .select(probe.mutableColumn)
-      .eq("id", probe.idOf())
-      .single();
-
-    expect((actual as unknown as Record<string, unknown>)[probe.mutableColumn]).not.toEqual(
-      probe.mutableValue,
-    );
+    expect(await readColumn()).toEqual(before);
   });
 
   it("cannot DELETE the row", async () => {

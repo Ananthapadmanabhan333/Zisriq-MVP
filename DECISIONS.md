@@ -196,37 +196,47 @@ a probe, or without enabling RLS, fails CI instead of passing unnoticed.
 
 ---
 
-## D-016 — Local development may run against a cloud project
+## D-016 — SUPERSEDED: the "WSL2 segfault" was corrupted Docker image layers
+**Phase 1 · Superseded by the finding below**
+
+This entry originally concluded that `supabase start` could not run on this machine
+because Supabase's Realtime container segfaults under WSL2, and recommended developing
+against a cloud project. **That diagnosis was wrong**, and the recommendation is
+withdrawn. The local stack works.
+
+**What was actually happening.** The C: drive had filled to 1 GB free, which pushed the
+Docker VM's filesystem read-only mid-pull. Docker recorded the affected images as
+present, but their layers were **truncated on disk**. The giveaway: GoTrue's `auth`
+binary was exactly 8,388,608 bytes — precisely 8 MiB, a block boundary. The real binary
+is 52,556,098 bytes. A truncated ELF executable segfaults the instant it is exec'd,
+which is why both GoTrue and Realtime died with exit 139 and produced no log output at
+all.
+
+Because Docker considered the images present, every subsequent `docker pull` was a
+no-op ("Status: Image is up to date"), so the corruption persisted across every retry.
+`docker rmi -f` followed by `docker pull` is what actually repairs it.
+
+**What this ruled in and out.** A shell ran fine inside the same GoTrue image, and an
+unrelated Go binary (`caddy`) ran fine on the same daemon — so neither WSL2, nor Docker,
+nor Go, nor the CPU was at fault. Only the Supabase images were damaged, and only
+because they happened to be the ones being pulled while the disk was full.
+
+**The lesson worth keeping.** An exit-139 with no output from a container is a corrupt
+binary until proven otherwise. Check the on-disk size of the entrypoint before blaming
+the platform. A suspiciously round file size is the tell.
+
+---
+
+## D-016a — A cloud project remains a supported fallback
 **Phase 1 · Accepted**
 
-`supabase start` cannot run on this development machine. Supabase's Realtime container
-is an Elixir/BEAM service whose migration binary segfaults under WSL2:
+`npm run db:setup:cloud` and the README's cloud path are kept, because they are useful
+independently of the bug above: they are how a machine without Docker, or a second
+developer, gets a working environment, and they exercise the same `supabase db push`
+path that production uses. The local stack is the default again.
 
-```
-+ sudo -E -u nobody /app/bin/migrate
-/app/run.sh: line 98: 8 Segmentation fault   sudo -E -u nobody /app/bin/migrate
-{"code":"LegacyDbSetupError","message":"error running container: exit 139"}
-```
-
-Ruled out by direct test, each independently: the project's own migrations (it fails
-identically with all of them moved aside), a corrupt postgres image (re-pulled, same
-digest), Docker itself (`hello-world` runs), `networkingMode=mirrored` in `.wslconfig`,
-and an outdated WSL kernel (2.7.12 / 6.18.33, both current). Setting
-`[realtime] enabled = false` does **not** avoid it, because the CLI applies Realtime's
-schema migrations during db setup regardless of that flag.
-
-**Decision.** Local Docker remains the documented default, and CI uses it (GitHub
-runners are unaffected). On a machine where it fails, development targets a dedicated
-Supabase Cloud project via `npm run db:setup:cloud`. The schema, RLS and seed are
-identical either way — it is the same Postgres — so nothing about the product changes.
-
-`[realtime] enabled = false` is kept regardless, because V1 uses no subscriptions and
-the service is otherwise dead weight.
-
-**Consequence.** The cloud path uses `supabase db reset --linked`, which drops and
-rebuilds the remote public schema. The helper script requires the operator to retype
-the project ref before proceeding, and the README states plainly that it must only ever
-point at a throwaway development project.
+`[realtime] enabled = false` is also kept, on its own merits: V1 uses no subscriptions,
+so the service is dead weight.
 
 ---
 

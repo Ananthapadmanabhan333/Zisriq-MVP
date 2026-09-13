@@ -129,10 +129,9 @@ GoTrue or PostgREST, so real sign-in and the REST layer still need
 
 ### Developing against a cloud project instead of the local stack
 
-The local Docker stack is the default, but Supabase's Realtime container segfaults
-under WSL2 on some Windows machines (`/app/bin/migrate` -> exit 139), which blocks
-`supabase start` entirely. If you hit that, develop against a free Supabase Cloud
-project instead. It is the same Postgres, and it is the production target anyway.
+The local Docker stack is the default. Use a cloud project when you are on a machine
+without Docker, or when you want a shared environment. It is the same Postgres, and it
+is the production target anyway.
 
 1. Create a project at https://supabase.com/dashboard (free tier is fine). Choose a
    region close to you and **save the database password** — you need it in step 3.
@@ -165,6 +164,27 @@ project instead. It is the same Postgres, and it is the production target anyway
    ```powershell
    npm run test:integration
    ```
+
+### If a Supabase container exits with code 139
+
+Exit 139 is a segfault. If it happens with **no log output at all**, the binary inside
+the image is almost certainly truncated rather than broken — this happens when the disk
+fills while images are being pulled. Docker still reports the image as present, so
+`docker pull` becomes a no-op and the fault survives every retry.
+
+Repair the image by deleting it first:
+
+```powershell
+docker rmi -f public.ecr.aws/supabase/gotrue:v2.196.0
+docker pull public.ecr.aws/supabase/gotrue:v2.196.0
+```
+
+To confirm before and after, check the entrypoint's size — a suspiciously round number
+is the tell:
+
+```powershell
+docker run --rm --entrypoint sh public.ecr.aws/supabase/gotrue:v2.196.0 -c "ls -l /usr/local/bin/auth"
+```
 
 ### If Docker Desktop will not start
 
