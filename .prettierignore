@@ -1,0 +1,8 @@
+.next/
+node_modules/
+package-lock.json
+src/types/database.ts
+supabase/.temp/
+test-results/
+playwright-report/
+*.md

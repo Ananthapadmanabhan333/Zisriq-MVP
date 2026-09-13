@@ -1,0 +1,13 @@
+# Normalise to LF in the repository so Prettier's `format:check` behaves
+# identically on Windows and on Linux CI runners.
+* text=auto eol=lf
+
+# Binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+
+# Generated — collapse in diffs
+package-lock.json linguist-generated=true
+src/types/database.ts linguist-generated=true
