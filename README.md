@@ -110,6 +110,45 @@ npm run db:status       # print local URLs and keys
 npm run db:types        # regenerate src/types/database.ts — run after every migration
 ```
 
+### Developing against a cloud project instead of the local stack
+
+The local Docker stack is the default, but Supabase's Realtime container segfaults
+under WSL2 on some Windows machines (`/app/bin/migrate` -> exit 139), which blocks
+`supabase start` entirely. If you hit that, develop against a free Supabase Cloud
+project instead. It is the same Postgres, and it is the production target anyway.
+
+1. Create a project at https://supabase.com/dashboard (free tier is fine). Choose a
+   region close to you and **save the database password** — you need it in step 3.
+   Name it something that makes clear it is not production, e.g. `zisriq-dev`.
+
+2. Copy `.env.example` to `.env.local` and fill in, from
+   **Project Settings > API** and **> General**:
+
+   | Variable | Where |
+   |---|---|
+   | `SUPABASE_PROJECT_REF` | Settings > General > Reference ID |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Settings > API > Project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Settings > API > anon / publishable key |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Settings > API > service_role key |
+   | `SUPABASE_JWT_SECRET` | Settings > API > JWT Settings > JWT Secret |
+   | `APP_URL` | `http://localhost:3000` |
+
+3. Apply the schema and seed:
+
+   ```powershell
+   npm run db:setup:cloud
+   ```
+
+   This links the repo, lists the migrations, then asks you to retype the project ref
+   before it runs `supabase db reset --linked`. **That drops and rebuilds the public
+   schema on the remote project**, so only ever point it at a throwaway dev project.
+
+4. Verify tenant isolation:
+
+   ```powershell
+   npm run test:integration
+   ```
+
 ### If Docker Desktop will not start
 
 A recurring fault on Windows leaves stale Unix-socket files that Docker cannot remove, and it
@@ -120,7 +159,9 @@ image and container you have. Run this instead, then start Docker Desktop again:
 ```powershell
 Get-Process | Where-Object { $_.Name -match 'docker|vpnkit|wslrelay' -and $_.Name -ne 'com.docker.service' } | Stop-Process -Force
 wsl --shutdown
-Move-Item "$env:LOCALAPPDATA\Dockerun" "$env:LOCALAPPDATA\Dockerun.broken" -Force
+Move-Item "$env:LOCALAPPDATA\Docker
+un" "$env:LOCALAPPDATA\Docker
+un.broken" -Force
 Move-Item "$env:LOCALAPPDATA\docker-secrets-engine" "$env:LOCALAPPDATA\docker-secrets-engine.broken" -Force
 ```
 

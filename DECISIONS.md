@@ -196,6 +196,40 @@ a probe, or without enabling RLS, fails CI instead of passing unnoticed.
 
 ---
 
+## D-016 — Local development may run against a cloud project
+**Phase 1 · Accepted**
+
+`supabase start` cannot run on this development machine. Supabase's Realtime container
+is an Elixir/BEAM service whose migration binary segfaults under WSL2:
+
+```
++ sudo -E -u nobody /app/bin/migrate
+/app/run.sh: line 98: 8 Segmentation fault   sudo -E -u nobody /app/bin/migrate
+{"code":"LegacyDbSetupError","message":"error running container: exit 139"}
+```
+
+Ruled out by direct test, each independently: the project's own migrations (it fails
+identically with all of them moved aside), a corrupt postgres image (re-pulled, same
+digest), Docker itself (`hello-world` runs), `networkingMode=mirrored` in `.wslconfig`,
+and an outdated WSL kernel (2.7.12 / 6.18.33, both current). Setting
+`[realtime] enabled = false` does **not** avoid it, because the CLI applies Realtime's
+schema migrations during db setup regardless of that flag.
+
+**Decision.** Local Docker remains the documented default, and CI uses it (GitHub
+runners are unaffected). On a machine where it fails, development targets a dedicated
+Supabase Cloud project via `npm run db:setup:cloud`. The schema, RLS and seed are
+identical either way — it is the same Postgres — so nothing about the product changes.
+
+`[realtime] enabled = false` is kept regardless, because V1 uses no subscriptions and
+the service is otherwise dead weight.
+
+**Consequence.** The cloud path uses `supabase db reset --linked`, which drops and
+rebuilds the remote public schema. The helper script requires the operator to retype
+the project ref before proceeding, and the README states plainly that it must only ever
+point at a throwaway development project.
+
+---
+
 ## Noticed, deliberately not built
 
 - **Client-facing notification preferences** (opt-out of reminders). Out of V1 scope.
