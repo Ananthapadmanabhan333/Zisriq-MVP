@@ -151,9 +151,34 @@ describe("the portal view", () => {
   });
 
   it("stops serving a cancelled request even with a live link", async () => {
+    // Creates its own request rather than cancelling a seeded one. Mutating
+    // shared fixtures makes a suite pass once and fail on every rerun, which is
+    // worse than no test at all.
+    const { data: created } = await admin
+      .from("requests")
+      .insert({
+        firm_id: SEED.firmA.id,
+        client_id: SEED.firmA.clientId,
+        title: "Cancellation probe",
+        period_label: "probe",
+        status: "awaiting_client",
+        sent_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    const probeId = created!.id as string;
+
+    await admin.from("request_items").insert({
+      firm_id: SEED.firmA.id,
+      request_id: probeId,
+      label: "Probe item",
+      sort_order: 0,
+    });
+
     const issued = await issuePortalToken({
       firmId: SEED.firmA.id,
-      requestId: SEED.firmA.requestNotAssignedToStaff,
+      requestId: probeId,
       createdBy: SEED.firmA.admin.id,
       ttlDays: 30,
     });
@@ -163,8 +188,11 @@ describe("the portal view", () => {
     await admin
       .from("requests")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-      .eq("id", SEED.firmA.requestNotAssignedToStaff);
+      .eq("id", probeId);
 
+    // A live link must stop working the moment the firm cancels the request.
     expect(await loadPortalView(issued.token)).toBeNull();
+
+    await admin.from("requests").delete().eq("id", probeId);
   });
 });
