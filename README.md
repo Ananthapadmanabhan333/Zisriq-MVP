@@ -1,209 +1,175 @@
 # Zisriq
 
-Document collection and follow-up for Indian CA and accounting firms.
+**Document collection and follow-up for Indian CA and accounting firms.**
 
-A firm creates a client, generates a document checklist, and sends a secure upload link.
-Zisriq tracks what is missing, chases the client automatically, and shows the firm one
-dashboard of what is blocked and on whom. Clients upload from their phone without creating
-an account.
+A firm creates a client, builds a document checklist, and sends a secure link.
+The client uploads from their phone — no account, no password, no app. Zisriq
+tracks what is missing, chases it automatically, and shows the firm one dashboard
+of what is blocked and on whom.
+
+---
+
+## The problem it solves
+
+Every filing season, a firm needs bank statements, Form 16s, GST returns and
+invoices from dozens or hundreds of clients. Today that happens over WhatsApp and
+email: the firm asks, the client forgets, someone sends a blurry photo of page 2
+only, and nobody has a single view of what is still outstanding.
+
+The work is not hard. The *chasing* is unstructured and invisible.
+
+Zisriq answers one question well: **what am I waiting on, from whom, and for how
+long?**
+
+## Scope
+
+**V1 is document collection and follow-up. Nothing else.**
+
+Deliberately **not** built, and not planned: accounting/ERP, Tally integration,
+GST filing, GSTR-2B/AIS/26AS reconciliation, payroll, invoicing, payments, a
+native mobile app, WhatsApp Business API, in-app chat, e-signature, multi-language.
+
+A tool that does one job properly is more useful to a firm than one that does ten
+jobs badly.
+
+---
+
+## Status
+
+Working end to end against a local stack. **Not deployed anywhere.**
+
+| Area | State |
+|---|---|
+| Schema, RLS, multi-tenancy | Done, verified by tests |
+| Auth, onboarding, firm shell | Done |
+| Clients, templates, requests | Done |
+| Client portal and uploads | Done |
+| Reminders and cron | Done |
+| Deployment | Documented, never executed |
+
+**Tests: 65 unit, 89 integration.** Typecheck, lint, format and production build
+all clean.
+
+### Known gaps — read before demoing
+
+- **The firm cannot open a document a client sent.** Uploads are received and
+  listed, but signed download URLs are not built yet. This is the most visible
+  gap.
+- **No document review UI.** `zq_doc_review` (pending / approved / rejected /
+  resupply_requested) exists in the schema with policies, but nothing writes it.
+- **e2e tests are one smoke test**, not a user journey.
+- Dashboard stat cards show no period-over-period deltas.
+- Member role changes and removal have working server actions but no UI.
+- Landing-page social proof is placeholder and switched off. See
+  [`src/lib/marketing.ts`](src/lib/marketing.ts).
+
+---
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19, TypeScript strict |
+| UI | Tailwind CSS v4 + shadcn/ui, Lucide icons |
+| Data / Auth / Storage | Supabase — Postgres, Auth, Storage |
+| Validation | Zod v4 at every input boundary |
+| Email | Resend |
+| Scheduling | Vercel Cron → protected route handler |
+| Tests | Vitest (unit + integration), Playwright (e2e) |
+| Hosting | Vercel + Supabase Cloud |
+
+**Row Level Security is the security boundary.** Not middleware, not application
+code. See [Architecture](docs/ARCHITECTURE.md#security-model).
 
 ---
 
 ## Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| Node.js | 20.9+ (24 recommended) | `node -v` |
-| npm | 10+ | ships with Node |
-| Docker Desktop | any current | required for the local Supabase stack; must be **running** |
-| Git | any current | |
-
-Windows/PowerShell is the supported development environment. Every command below works in
-PowerShell.
-
----
+- **Node 20+**
+- **Docker Desktop**, running — the local Supabase stack needs it
+- **~8 GB free disk.** Non-negotiable: filling the disk once corrupted Docker's
+  image layers here and cost hours. See [Troubleshooting](#troubleshooting).
 
 ## Setup
 
-### 1. Install dependencies
-
-```powershell
+```bash
 npm install
+npm run db:start      # starts local Supabase (first run pulls ~5 GB of images)
 ```
 
-### 2. Start the local Supabase stack
+Copy the template and fill it from the stack you just started:
 
-Make sure Docker Desktop is running, then:
-
-```powershell
-npm run db:start
+```bash
+cp .env.example .env.local
+npx supabase status -o env      # prints API_URL, ANON_KEY, SERVICE_ROLE_KEY, JWT_SECRET
 ```
-
-First run pulls several container images and takes a few minutes. When it finishes it prints
-a block of values — keep the terminal open, you need them in the next step:
-
-```
-API URL: http://127.0.0.1:54321
-anon key: eyJhbGciOi...
-service_role key: eyJhbGciOi...
-JWT secret: super-secret-jwt-token-...
-```
-
-### 3. Create your local env file
-
-```powershell
-Copy-Item .env.example .env.local
-```
-
-Open `.env.local` and fill in, from the output above:
 
 | Variable | Value |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | the **API URL** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the **anon key** |
-| `SUPABASE_SERVICE_ROLE_KEY` | the **service_role key** |
-| `SUPABASE_JWT_SECRET` | the **JWT secret** |
+| `NEXT_PUBLIC_SUPABASE_URL` | `API_URL` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `ANON_KEY` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `SERVICE_ROLE_KEY` — **bypasses RLS** |
+| `SUPABASE_JWT_SECRET` | `JWT_SECRET` |
 | `APP_URL` | `http://localhost:3000` |
 
-Leave `RESEND_API_KEY` blank — in development, email is written to the console instead of
-being sent. `ANTHROPIC_API_KEY` and `SENTRY_DSN` can stay blank until Phases 7 and 6.
+Then:
 
-If you lose the values, `npm run db:status` prints them again.
-
-### 4. Run the app
-
-```powershell
+```bash
+npm run db:reset      # apply migrations + seed
+npm run db:types      # regenerate src/types/database.ts
 npm run dev
 ```
 
-Open http://localhost:3000.
+### Seeded logins
 
-### 5. Install Playwright browsers (once, before running e2e tests)
+All use `Password123!`. Two firms exist so you can see tenant isolation for real.
 
-```powershell
-npx playwright install chromium
-```
+| Email | Firm | Role | What they see |
+|---|---|---|---|
+| `priya@deshmukhca.example` | Deshmukh & Associates | Admin | Everything in the firm |
+| `rahul@deshmukhca.example` | Deshmukh & Associates | Accountant | Everything except firm settings |
+| `sneha@deshmukhca.example` | Deshmukh & Associates | Staff | **Only her assigned requests** |
+| `venkat@iyervenkat.example` | Iyer Venkatraman & Co. | Admin | A completely separate firm |
+
+Sign in as `sneha` and then `venkat` — the narrowing is done by RLS policies, with
+no `where firm_id` anywhere in the application code.
 
 ---
 
 ## Everyday commands
 
-```powershell
-npm run dev             # dev server
-npm run build           # production build
-npm run typecheck       # TypeScript, no emit
-npm run lint            # ESLint
-npm run format          # Prettier, write
-npm test                # unit tests (Vitest) - no database needed
-npm run test:integration  # RLS cross-tenant isolation - needs the local stack running
-npm run test:all        # both
-npm run test:e2e        # end-to-end tests (Playwright)
+```bash
+npm run dev               # dev server
+npm run build             # production build
+npm run typecheck         # tsc --noEmit
+npm run lint              # eslint
+npm run format            # prettier --write .
+
+npm test                  # unit tests — fast, no database
+npm run test:integration  # RLS + portal tokens — REQUIRES local Supabase
+npm run test:all          # both
+npm run test:e2e          # playwright
+
+npm run db:start          # supabase start
+npm run db:stop
+npm run db:reset          # re-apply migrations + seed
+npm run db:types          # regenerate types — run after EVERY migration
+npm run db:verify         # apply everything to a throwaway Postgres, run 36 RLS
+                          # checks. Needs only Docker, not the full stack.
+npm run db:push:prod      # apply migrations to a linked cloud project
+
+npm run audit:bundle      # fail if a secret reached the client bundle
 ```
 
-Database:
+### `npm run db:verify`
 
-```powershell
-npm run db:start        # start local Supabase
-npm run db:stop         # stop it
-npm run db:reset        # drop, re-apply every migration, re-seed
-npm run db:status       # print local URLs and keys
-npm run db:types        # regenerate src/types/database.ts — run after every migration
-```
+Spins up a throwaway Postgres, applies all migrations and the seed, then runs 36
+cross-tenant checks by simulating how PostgREST executes a request — assuming the
+`authenticated` or `anon` role and setting the JWT claim variables.
 
-### Verifying the schema without the Supabase stack
-
-```powershell
-npm run db:verify
-```
-
-Applies all 17 migrations and the seed to a throwaway `supabase/postgres` container,
-then runs 36 cross-tenant isolation checks against it — simulating how PostgREST
-executes a request, by assuming the `authenticated` or `anon` role and setting the JWT
-claim variables. It needs only Docker, not the full Supabase stack, and it removes the
-container afterwards.
-
-It covers tenant isolation, staff assigned-only scoping, anonymous denial, portal-token
-scoping, the status transition guard and schema-wide RLS coverage. It does **not** cover
-GoTrue or PostgREST, so real sign-in and the REST layer still need
-`npm run test:integration` against a real Supabase.
-
-### Developing against a cloud project instead of the local stack
-
-The local Docker stack is the default. Use a cloud project when you are on a machine
-without Docker, or when you want a shared environment. It is the same Postgres, and it
-is the production target anyway.
-
-1. Create a project at https://supabase.com/dashboard (free tier is fine). Choose a
-   region close to you and **save the database password** — you need it in step 3.
-   Name it something that makes clear it is not production, e.g. `zisriq-dev`.
-
-2. Copy `.env.example` to `.env.local` and fill in, from
-   **Project Settings > API** and **> General**:
-
-   | Variable | Where |
-   |---|---|
-   | `SUPABASE_PROJECT_REF` | Settings > General > Reference ID |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Settings > API > Project URL |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Settings > API > anon / publishable key |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Settings > API > service_role key |
-   | `SUPABASE_JWT_SECRET` | Settings > API > JWT Settings > JWT Secret |
-   | `APP_URL` | `http://localhost:3000` |
-
-3. Apply the schema and seed:
-
-   ```powershell
-   npm run db:setup:cloud
-   ```
-
-   This links the repo, lists the migrations, then asks you to retype the project ref
-   before it runs `supabase db reset --linked`. **That drops and rebuilds the public
-   schema on the remote project**, so only ever point it at a throwaway dev project.
-
-4. Verify tenant isolation:
-
-   ```powershell
-   npm run test:integration
-   ```
-
-### If a Supabase container exits with code 139
-
-Exit 139 is a segfault. If it happens with **no log output at all**, the binary inside
-the image is almost certainly truncated rather than broken — this happens when the disk
-fills while images are being pulled. Docker still reports the image as present, so
-`docker pull` becomes a no-op and the fault survives every retry.
-
-Repair the image by deleting it first:
-
-```powershell
-docker rmi -f public.ecr.aws/supabase/gotrue:v2.196.0
-docker pull public.ecr.aws/supabase/gotrue:v2.196.0
-```
-
-To confirm before and after, check the entrypoint's size — a suspiciously round number
-is the tell:
-
-```powershell
-docker run --rm --entrypoint sh public.ecr.aws/supabase/gotrue:v2.196.0 -c "ls -l /usr/local/bin/auth"
-```
-
-### If Docker Desktop will not start
-
-A recurring fault on Windows leaves stale Unix-socket files that Docker cannot remove, and it
-quits with *"An unexpected error occurred"* mentioning `.sock.stale` and *"The file cannot be
-accessed by the system"*. Do **not** click "Reset to factory defaults" — that deletes every
-image and container you have. Run this instead, then start Docker Desktop again:
-
-```powershell
-Get-Process | Where-Object { $_.Name -match 'docker|vpnkit|wslrelay' -and $_.Name -ne 'com.docker.service' } | Stop-Process -Force
-wsl --shutdown
-Move-Item "$env:LOCALAPPDATA\Docker
-un" "$env:LOCALAPPDATA\Docker
-un.broken" -Force
-Move-Item "$env:LOCALAPPDATA\docker-secrets-engine" "$env:LOCALAPPDATA\docker-secrets-engine.broken" -Force
-```
-
-Killing the orphaned `com.docker.backend` processes is the part that matters: without it,
-Docker recreates the sockets and immediately breaks them again.
+Faster than the full stack and useful when Docker is being difficult. It proves
+DDL validity and RLS *policy* behaviour; it does not exercise GoTrue or PostgREST,
+so real sign-in still needs `npm run test:integration`.
 
 ---
 
@@ -211,32 +177,87 @@ Docker recreates the sockets and immediately breaks them again.
 
 ```
 src/app/(auth)        sign-up, login, password reset
-src/app/(app)         authed firm shell: dashboard, clients, requests, templates, team, settings
-src/app/p/[token]     public client portal — no login required
-src/app/api           health, cron, portal upload endpoints, signed downloads
-src/server            server-only modules (secrets never leave this directory)
-src/lib               env, Supabase clients, validation, dates, status machine
-supabase/migrations   schema and RLS policies, applied in order
-tests/                unit, integration (RLS isolation), e2e
+src/app/(app)         authed firm shell: dashboard, clients, requests,
+                      templates, members, activity, settings
+src/app/p/[token]     PUBLIC client portal — no login, mobile-first
+src/app/invite/[token] invite acceptance
+src/app/api           portal upload URL + confirm, cron/reminders
+src/server            server-only: actions, services, admin db client
+src/lib               env, supabase clients, status machine, permissions,
+                      validation, IST dates
+supabase/migrations   schema + RLS, applied in filename order
+tests/unit            pure logic
+tests/integration     RLS cross-tenant matrix, portal tokens, onboarding
+tests/sql             standalone schema verification
 ```
+
+---
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data model, security model, request flows |
+| [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | How each feature is built, and how to extend it |
+| [DECISIONS.md](DECISIONS.md) | Numbered decision log — what was chosen and why |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Supabase Cloud + Vercel, step by step |
+| [CLAUDE.md](CLAUDE.md) | Working notes and accumulated gotchas |
 
 ---
 
 ## Security model, in one paragraph
 
-Every business table carries `firm_id` and has Row Level Security enabled with deny-by-default
-policies; a user reads only rows for firms they hold a membership in. The storage bucket is
-private and downloads happen exclusively through short-lived signed URLs generated after a
-server-side authorisation check. Clients access the portal through an unguessable, single-request
-token of which only a hash is stored, and which expires and can be revoked. Secrets live under
-`src/server/**` behind `server-only`, and CI fails the build if any of them appear in a client
-chunk.
-
-See `DECISIONS.md` for the reasoning behind the non-obvious choices, and `CLAUDE.md` for
-conventions.
+Every table carrying tenant data has `firm_id` and an RLS policy scoping it to
+`app.current_firm_ids()`. The application never filters by firm — if it did, the
+rule would live in two places and they would drift. Three surfaces bypass RLS by
+necessity, because no user session exists to carry authorisation: the reminder
+cron, portal token resolution, and upload confirmation. Each is a single module,
+documented as such, and covered directly by tests. Portal links and invites are
+credentials: 32 random bytes, stored only as SHA-256, shown exactly once, revoked
+when reissued.
 
 ---
 
-## Deployment
+## Troubleshooting
 
-See `DEPLOYMENT.md` (written in Phase 6).
+### A Supabase container exits with code 139
+
+Exit 139 is a segfault. If it happens with **no log output at all**, the binary
+inside the image is truncated, not broken — this happens when the disk fills while
+images are pulling. Docker still reports the image as present, so `docker pull`
+becomes a no-op and the fault survives every retry.
+
+```bash
+docker rmi -f public.ecr.aws/supabase/gotrue:v2.196.0
+docker pull public.ecr.aws/supabase/gotrue:v2.196.0
+```
+
+Check the entrypoint's size before blaming WSL2 — a suspiciously round number is
+the tell:
+
+```bash
+docker run --rm --entrypoint sh public.ecr.aws/supabase/gotrue:v2.196.0 -c "ls -l /usr/local/bin/auth"
+```
+
+### Docker Desktop will not start — stale sockets
+
+`rename <x>.sock <x>.sock.stale: The file cannot be accessed by the system`.
+Renaming one directory buys a single start attempt, because orphaned
+`com.docker.backend` processes keep re-breaking the sockets. What works: kill
+every docker/vpnkit process except `com.docker.service`, run `wsl --shutdown`,
+rename **both** `%LOCALAPPDATA%\Docker\run` and
+`%LOCALAPPDATA%\docker-secrets-engine`, then relaunch.
+
+Do **not** use "Reset to factory defaults" — it wipes every image.
+
+### Forms silently do nothing, with a 200 in the logs
+
+Almost always one of two things, both documented in [CLAUDE.md](CLAUDE.md):
+`middleware.ts` not renamed to `proxy.ts` for Next 16, or a form read with
+`formData.get()` instead of `formFields()`.
+
+---
+
+## Licence
+
+Not yet licensed. All rights reserved.
