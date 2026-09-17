@@ -153,6 +153,37 @@
   --sidebar-ring: oklch(0.845 0.135 85);
 }
 
+/**
+ * A light island inside the dark shell.
+ *
+ * The marketing page is dark, but its sign-in card is light — the contrast is
+ * what makes the card read as the one thing to act on. Re-declaring the tokens
+ * on a wrapper is enough, because components style themselves from these
+ * variables rather than from `dark:` variants.
+ */
+.light {
+  --background: oklch(0.985 0.004 80);
+  --foreground: oklch(0.22 0.012 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.012 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.012 60);
+  --primary: oklch(0.24 0.014 60);
+  --primary-foreground: oklch(0.98 0.004 80);
+  --secondary: oklch(0.955 0.008 80);
+  --secondary-foreground: oklch(0.28 0.014 65);
+  --muted: oklch(0.955 0.008 80);
+  --muted-foreground: oklch(0.5 0.016 70);
+  --accent: oklch(0.95 0.02 85);
+  --accent-foreground: oklch(0.28 0.014 65);
+  --destructive: oklch(0.58 0.19 25);
+  --border: oklch(0.91 0.008 75);
+  --input: oklch(0.91 0.008 75);
+  --ring: oklch(0.72 0.13 78);
+  --surface: oklch(1 0 0);
+  --surface-raised: oklch(0.965 0.006 80);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
