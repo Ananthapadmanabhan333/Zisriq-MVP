@@ -883,6 +883,7 @@ export type Database = {
           update_policies: number
         }[]
       }
+      touch_portal_token: { Args: { p_token_id: string }; Returns: undefined }
     }
     Enums: {
       zq_client_type:

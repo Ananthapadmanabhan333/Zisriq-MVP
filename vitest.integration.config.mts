@@ -15,7 +15,14 @@ import { config } from "dotenv";
 config({ path: ".env.local", quiet: true });
 
 export default defineConfig({
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    alias: {
+      // See tests/integration/helpers/server-only-stub.ts for why.
+      "server-only": new URL("./tests/integration/helpers/server-only-stub.ts", import.meta.url)
+        .pathname,
+    },
+  },
   test: {
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],
