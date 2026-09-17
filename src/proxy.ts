@@ -22,6 +22,7 @@ const PUBLIC_PREFIXES = [
   "/sign-up",
   "/forgot-password",
   "/reset-password",
+  "/invite/",
   "/auth",
   "/p/",
 ];

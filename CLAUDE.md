@@ -115,17 +115,33 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
   `npm run test:integration` passes **68/68** against a real local Supabase, signing in
   as seeded users through GoTrue and going through PostgREST — the spec's Phase 2 gate.
   Phase 2 may proceed.
-- **Phase 2 — Auth and firm shell. IN PROGRESS.** Working end to end: sign-up → firm
-  creation → dashboard, verified in a browser. Auth routes (login, sign-up, forgot and
-  reset password, `/auth/callback`), `proxy.ts` session refresh + route protection,
-  `requireSession()`, the authed shell, and a dashboard reading live data with real
-  empty states. `create_firm_with_owner()` is the only way a firm comes into existence.
-  Still to do: members/invites, settings, profile.
-- Phase 3 — Clients and requests.
-- Phase 4 — Client portal and uploads.
-- Phase 5 — Reminders and dashboard.
-- Phase 6 — Deploy.
-- Phase 7 — AI validation (flagged off).
+- **Phase 2 — Auth and firm shell. DONE.** Sign-up, login, password reset,
+  `/auth/callback`, `proxy.ts` session refresh and route protection, onboarding via
+  `create_firm_with_owner()`, the authed shell, members with token-based invites,
+  firm settings, profile, activity log.
+- **Phase 3 — Clients and requests. DONE.** Clients (PAN + GSTIN checksum verified),
+  reusable checklist templates copied into requests, requests with items, assignment,
+  due dates and status transitions offered only where the machine permits.
+- **Phase 4 — Client portal and uploads. DONE.** Hashed single-use portal tokens,
+  public mobile-first portal at `/p/[token]`, browser→Storage uploads via one-shot
+  signed URLs, server-side magic-byte sniffing that deletes mismatches.
+- **Phase 5 — Reminders and dashboard. DONE.** Pure reminder cadence (16 unit tests),
+  idempotent cron at `/api/cron/reminders` guarded by CRON_SECRET, Resend email that
+  degrades to a log line locally, dashboard on live data.
+- **Phase 6 — Deploy. DOCUMENTED, NOT EXECUTED.** See DEPLOYMENT.md. Nothing has been
+  deployed and no cloud project exists yet; the steps cost money and are hard to undo,
+  so they are the operator's to run.
+- Phase 7 — AI validation (flagged off). NOT STARTED.
+
+### Known gaps
+- No e2e tests yet (`tests/e2e` is scaffolded but empty).
+- Document review (approve / reject / request resupply) is modelled in the schema
+  (`zq_doc_review`) but has no UI; the firm can see uploads, not action them.
+- Signed download URLs for the firm to open an uploaded document are not built.
+- Dashboard stat cards show no period-over-period deltas — that needs historical
+  aggregation and an empty state for a firm's first month.
+- Members page lists and invites, but role changes and removal have actions with no
+  UI wired to them.
 
 ## Gotchas discovered so far
 

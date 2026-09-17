@@ -34,7 +34,7 @@ export function GreetingBanner({
           <p className="text-muted-foreground mt-2.5 text-[15px]">
             {attentionCount === 0
               ? "Nothing needs chasing today."
-              : `${attentionCount} request${attentionCount === 1 ? "" : "s"} need your attention today.`}
+              : `${attentionCount} request${attentionCount === 1 ? " needs" : "s need"} your attention today.`}
           </p>
         </div>
 

@@ -22,7 +22,7 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { formatIstDateLong, istGreeting } from "@/lib/dates";
 import { requireSession } from "@/server/auth/session";
-import { getDashboard, type ActivityItem } from "@/server/services/dashboard";
+import { getDashboard, statusSegments, type ActivityItem } from "@/server/services/dashboard";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -65,15 +65,12 @@ export default async function DashboardPage() {
   const firstName = (session.fullName?.trim() || session.email).split(/[\s@]/)[0];
   const quote = QUOTES[new Date().getDate() % QUOTES.length];
 
-  // Mutually exclusive statuses that sum to the total, with overdue carved out
-  // of awaiting rather than added beside it. See DECISIONS.md D-020.
-  const segments: ProgressSegment[] = [
-    { label: "Completed", count: stats.completed, color: "var(--received)" },
-    { label: "Under review", count: stats.underReview, color: "var(--review)" },
-    { label: "Received", count: stats.received, color: "var(--chart-5)" },
-    { label: "Awaiting client", count: stats.awaitingClient, color: "var(--awaiting)" },
-    { label: "overdue", count: stats.overdue, color: "var(--overdue)", subset: true },
-  ];
+  const segments: ProgressSegment[] = statusSegments(stats).map((segment) => ({
+    label: segment.label,
+    count: segment.count,
+    color: segment.colorVar,
+    subset: segment.subset,
+  }));
 
   return (
     <main className="grid flex-1 grid-cols-1 gap-5 px-8 pb-8 xl:grid-cols-[minmax(0,1fr)_340px]">

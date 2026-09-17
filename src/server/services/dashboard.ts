@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { todayIst, describeDueDate, timeAgo, type IstDate } from "@/lib/dates";
 import { isOverdue, type Status } from "@/lib/status";
 import type { Session } from "@/server/auth/session";
+import type { DashboardStats } from "@/lib/dashboard";
+
+export type { DashboardStats } from "@/lib/dashboard";
+export { statusSegments, segmentsReconcile, type StatusSegment } from "@/lib/dashboard";
 
 /**
  * Everything the dashboard renders, in one round trip per concern.
@@ -13,19 +17,6 @@ import type { Session } from "@/server/auth/session";
  * clause here. That is deliberate: duplicating the scoping rule in application
  * code is how the two drift apart.
  */
-
-export type DashboardStats = {
-  total: number;
-  awaitingClient: number;
-  /** Derived from due dates, NOT a status. A subset of awaitingClient. */
-  overdue: number;
-  completed: number;
-  underReview: number;
-  received: number;
-  requested: number;
-  /** Share of requests whose documents are no longer outstanding. */
-  collectedPercent: number;
-};
 
 type RequestRow = {
   id: string;
@@ -39,7 +30,14 @@ export async function getDashboardStats(today: IstDate = todayIst()): Promise<Da
   // Statuses and due dates only. Counting in JS over a few hundred rows is
   // cheaper than six round trips, and keeps "overdue" defined in exactly one
   // place (lib/status) rather than half here and half in SQL.
-  const { data, error } = await supabase.from("requests").select("id, status, due_date");
+  //
+  // Cancelled requests are excluded entirely. The dashboard is about work in
+  // flight: a cancelled request is waiting on nobody, and counting it in the
+  // total while giving it no segment is what stopped the breakdown adding up.
+  const { data, error } = await supabase
+    .from("requests")
+    .select("id, status, due_date")
+    .neq("status", "cancelled");
   if (error) throw error;
 
   const rows = (data ?? []) as RequestRow[];
