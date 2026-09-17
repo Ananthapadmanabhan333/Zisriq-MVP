@@ -281,6 +281,66 @@ layer remain covered only by `npm run test:integration` against a real Supabase.
 
 ---
 
+## D-019 — Dark, warm-neutral shell with a single gold accent
+**Phase 2 · Accepted**
+
+The UI direction is set from a supplied mockup: a near-black shell tinted warm
+(every neutral sits on the brown side of grey, hue ~60 in OKLCH), one gold accent,
+and generous radii (`--radius: 1rem`).
+
+Dark is the product's native mode and ships as the default. Light is kept defined
+so shadcn primitives, print and future exports stay legible, but it is not the
+design target.
+
+**The accent is scarce on purpose.** Gold means "the primary action here" or
+"awaiting the client", nothing else. The dashboard has exactly one gold button.
+The moment a second competes with it, neither reads as primary.
+
+**Status colours are tokens, not per-component choices:** `--received` (green),
+`--awaiting` (gold), `--overdue` (red), `--review` (grey), exposed as Tailwind
+utilities. A colour therefore means the same thing on a stat card, a donut segment
+and a list row. Anything showing a status pulls from these.
+
+---
+
+## D-020 — Overdue is carved out of awaiting, never counted beside it
+**Phase 2 · Accepted**
+
+The source mockup showed 128 total requests alongside 74 awaiting + 19 overdue +
+86 completed (179), and a donut summing to 210. Both overcount, and the cause is
+structural rather than a typo in the artwork.
+
+`overdue` is **not** a member of the `zq_status` enum (see D-00x / the status
+vocabulary). It is derived at read time from `due_date` vs today in IST. An overdue
+request is therefore *simultaneously* `awaiting_client`. Rendering it as a peer
+bucket double-counts every late request, and the totals stop reconciling — which is
+exactly the kind of number a firm would notice and stop trusting.
+
+**Decision.** Anywhere statuses are totalled, the enum members are the mutually
+exclusive set and must sum to the total. Overdue is shown as a carve-out: indented,
+prefixed "of which", and drawn from inside the awaiting figure. The standalone
+"Overdue" stat card is fine, because it is a call to action rather than a term in a
+sum.
+
+**Consequence.** `ProgressSegment` carries a `subset` flag so the distinction is
+structural rather than a styling convention someone can forget.
+
+---
+
+## D-021 — Deltas are coloured by whether the news is good, not by sign
+**Phase 2 · Accepted**
+
+The mockup showed "↗ 27% from last month" on the Overdue card in red. Read
+literally that is a rising number styled as bad — correct here, but only by
+coincidence of the colour chosen.
+
+`StatCard` takes `riseIsGood` per metric. The arrow follows the sign of the change;
+the colour follows whether that direction is desirable. So overdue falling is green
+with a down arrow, and completed falling is red with a down arrow. Without this, a
+drop in completions renders as good news.
+
+---
+
 ## Noticed, deliberately not built
 
 - **Client-facing notification preferences** (opt-out of reminders). Out of V1 scope.

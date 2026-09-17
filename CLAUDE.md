@@ -73,6 +73,11 @@ npm run audit:bundle    # fail if a secret reached the client bundle (run after 
   migration: `npm run db:reset && npm run db:types`.
 - **Tests** are mandatory for permissions, tokens, status transitions, and reminder
   scheduling. Elsewhere, test what is load-bearing; do not chase coverage.
+- **Design.** Dark warm-neutral shell, ONE gold accent, `--radius: 1rem`. Colour for a
+  status always comes from the `--received` / `--awaiting` / `--overdue` / `--review`
+  tokens, never picked per component. At most one gold primary action per screen.
+  `/design/dashboard` is the static reference for the visual language — no data, no
+  auth; delete it once the real `/dashboard` lands. See DECISIONS.md D-019..D-021.
 
 ## Repo map
 
@@ -110,8 +115,9 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
   `npm run test:integration` passes **68/68** against a real local Supabase, signing in
   as seeded users through GoTrue and going through PostgREST — the spec's Phase 2 gate.
   Phase 2 may proceed.
-- Phase 2 — Auth and firm shell. NEXT.
-- Phase 2 — Auth and firm shell.
+- **Phase 2 — Auth and firm shell. IN PROGRESS.** Design language and dashboard
+  components built and reviewed in the browser at `/design/dashboard` (static, no data).
+  Still to do: auth routes, real app shell with session, firm creation, invites, roles.
 - Phase 3 — Clients and requests.
 - Phase 4 — Client portal and uploads.
 - Phase 5 — Reminders and dashboard.
