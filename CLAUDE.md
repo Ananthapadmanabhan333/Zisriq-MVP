@@ -115,9 +115,12 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
   `npm run test:integration` passes **68/68** against a real local Supabase, signing in
   as seeded users through GoTrue and going through PostgREST — the spec's Phase 2 gate.
   Phase 2 may proceed.
-- **Phase 2 — Auth and firm shell. IN PROGRESS.** Design language and dashboard
-  components built and reviewed in the browser at `/design/dashboard` (static, no data).
-  Still to do: auth routes, real app shell with session, firm creation, invites, roles.
+- **Phase 2 — Auth and firm shell. IN PROGRESS.** Working end to end: sign-up → firm
+  creation → dashboard, verified in a browser. Auth routes (login, sign-up, forgot and
+  reset password, `/auth/callback`), `proxy.ts` session refresh + route protection,
+  `requireSession()`, the authed shell, and a dashboard reading live data with real
+  empty states. `create_firm_with_owner()` is the only way a firm comes into existence.
+  Still to do: members/invites, settings, profile.
 - Phase 3 — Clients and requests.
 - Phase 4 — Client portal and uploads.
 - Phase 5 — Reminders and dashboard.
@@ -125,6 +128,18 @@ from `due_date` vs today in IST, for requests not yet completed or cancelled.
 - Phase 7 — AI validation (flagged off).
 
 ## Gotchas discovered so far
+
+- **Next.js 16 renamed `middleware.ts` to `proxy.ts`.** Keeping the old name does not
+  warn at build time — the file is simply never loaded, so every route stays reachable
+  while signed out. `npx @next/codemod@canary middleware-to-proxy .` does the rename.
+  After it, delete `.next`: the dev server serves a stale middleware manifest and client
+  JS stops loading entirely, which looks like "forms mysteriously do nothing".
+- **Never read a form with `formData.get(name)`.** It returns `null` for an absent
+  field, and `z.string().optional()` accepts `undefined` but REJECTS `null`. A form that
+  omits an optional hidden input then fails validation on a field with no UI, so no
+  error renders anywhere and the submit button silently does nothing — with a 200 in the
+  logs. Use `formFields()` from `@/lib/forms`, which iterates entries so absent fields
+  are genuinely absent. Guarded by `tests/unit/form-fields.test.ts`.
 
 - **Migration order matters for `language sql` functions.** Postgres validates an SQL
   function body at creation time, so a helper that queries a table must be created

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   CircleDot,
   FileText,
@@ -59,7 +62,8 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 }
 
 export function AppSidebar({
-  activeHref = "/dashboard",
+  /** Only passed by the design reference, which has no router pathname. */
+  activeHref,
   firmName,
   userName,
   userRole,
@@ -71,6 +75,12 @@ export function AppSidebar({
   userRole: string;
   userInitials: string;
 }) {
+  const pathname = usePathname();
+  const current = activeHref ?? pathname;
+
+  /** A nested route still lights up its section: /clients/abc marks Clients. */
+  const isActive = (href: string) => current === href || current.startsWith(`${href}/`);
+
   return (
     <aside className="bg-sidebar border-sidebar-border flex w-[248px] shrink-0 flex-col border-r">
       <div className="px-6 pt-7 pb-8">
@@ -88,13 +98,13 @@ export function AppSidebar({
 
       <nav className="flex flex-1 flex-col gap-1.5 px-4" aria-label="Main">
         {primaryNav.map((item) => (
-          <NavLink key={item.href} item={item} active={item.href === activeHref} />
+          <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
 
         <hr className="border-sidebar-border my-4 mr-2 ml-4" />
 
         {secondaryNav.map((item) => (
-          <NavLink key={item.href} item={item} active={item.href === activeHref} />
+          <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
       </nav>
 

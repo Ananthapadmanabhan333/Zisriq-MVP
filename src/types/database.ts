@@ -869,6 +869,7 @@ export type Database = {
       }
     }
     Functions: {
+      create_firm_with_owner: { Args: { p_name: string }; Returns: string }
       security_audit_tables: {
         Args: never
         Returns: {
