@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { clientEnv } from "@/lib/env/client";
+import { isPublicRoute, isSignedOutOnlyRoute } from "@/lib/routes";
 
 /**
  * Refreshes the Supabase session cookie on every request, and keeps signed-out
@@ -15,25 +16,6 @@ import { clientEnv } from "@/lib/env/client";
  * the old filename silently disables it -- the file is simply never loaded, so
  * every route stays reachable signed out and nothing warns you at build time.
  */
-
-/** Public: no session needed. Everything else behind `/` requires one. */
-const PUBLIC_PREFIXES = [
-  "/login",
-  "/sign-up",
-  "/forgot-password",
-  "/reset-password",
-  "/invite/",
-  "/auth",
-  "/p/",
-];
-
-/** Reachable only when signed OUT. A signed-in user gets bounced to the app. */
-const SIGNED_OUT_ONLY = ["/login", "/sign-up", "/forgot-password"];
-
-function isPublic(pathname: string): boolean {
-  if (pathname === "/") return true;
-  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
-}
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -66,7 +48,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!user && !isPublic(pathname)) {
+  if (!user && !isPublicRoute(pathname)) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     // Preserve where they were going, so sign-in lands them there.
@@ -74,7 +56,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  if (user && SIGNED_OUT_ONLY.some((p) => pathname.startsWith(p))) {
+  if (user && isSignedOutOnlyRoute(pathname)) {
     const dashboard = request.nextUrl.clone();
     dashboard.pathname = "/dashboard";
     dashboard.search = "";
